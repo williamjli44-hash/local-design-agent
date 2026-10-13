@@ -1,11 +1,13 @@
 {
-  "name": "local-design-agent",
+  "name": "local-business-agent",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "chat": "node agent.mjs",
-    "inspect": "npx @modelcontextprotocol/inspector node design-mcp-server.mjs"
+    "chat": "node business-agent.mjs",
+    "design-chat": "node agent.mjs",
+    "dashboard": "node dashboard-server.mjs",
+    "inspect": "npx @modelcontextprotocol/inspector node business-mcp-server.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",

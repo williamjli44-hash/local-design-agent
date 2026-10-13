@@ -1,0 +1,7 @@
+{
+  "mode": "simulation",
+  "starting_balance": 200,
+  "daily_spend_limit": 20,
+  "total_loss_limit": 50,
+  "require_human_approval": true
+}

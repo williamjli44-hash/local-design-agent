@@ -1,69 +1,101 @@
-# Local Design Agent
+# Local Business Agent
 
-This is the smallest example of a local model using an MCP server.
+This is a safe, local starter kit for learning how a local LLM, an agent loop, MCP tools, and a dashboard fit together.
 
-The local DeepSeek model is the reasoning engine. The MCP server exposes one tool:
+It starts in **simulation mode** with a fake $200 account. The agent can read the simulated account, review experiments, and create experiment proposals. It cannot access a real bank account, spend money, send messages, or publish anything.
+
+## Architecture
 
 ```text
-get_design_spec(component_name)
+Ollama + local model
+        ↓
+business-agent.mjs
+        ↓
+business-mcp-server.mjs
+        ├─ account overview (simulation)
+        ├─ experiment list
+        └─ create proposal (simulation only)
+        ↓
+data/*.json
+        ↓
+dashboard-server.mjs → http://localhost:3000
 ```
 
-The tool reads `designs.json` and returns design tokens. The agent gives those tokens to the model, which can then produce matching React code.
+The original design-to-code lesson is still included. Run `npm run design-chat` to use the earlier `get_design_spec` MCP example.
 
-## Setup
-
-1. Install Node.js and Ollama.
-2. Pull a local model that supports tool calling. The default is `deepseek-r1:8b`, but you can choose another model with `OLLAMA_MODEL`. The model must fit in your available GPU/system memory.
-3. Install the JavaScript dependencies:
+## Setup on your PC
 
 ```bash
+git clone https://github.com/williamjli44-hash/local-business-agent.git
+cd local-business-agent
 npm install
 ```
 
-4. Start the chat:
+Start Ollama in another terminal:
+
+```bash
+ollama serve
+```
+
+Pull a tool-calling-capable local model. The default model is configurable:
+
+```bash
+ollama pull deepseek-r1:8b
+```
+
+Start the dashboard:
+
+```bash
+npm run dashboard
+```
+
+Open <http://localhost:3000>.
+
+In another terminal, start the agent:
 
 ```bash
 npm run chat
 ```
 
-To use a different model:
+Try:
+
+```text
+Review my current account and propose one conservative experiment that costs no more than $10.
+```
+
+The agent should call MCP tools, but it should only create a proposal. It does not spend money.
+
+To use a different Ollama model:
 
 ```bash
 OLLAMA_MODEL=your-model-name npm run chat
 ```
 
-5. Try:
+## Safety boundary
 
-```text
-Create a React primary button using the design library.
-```
+The real-money plumbing is intentionally not implemented. There is no bank credential, payment tool, transfer tool, trading tool, email sender, or autonomous publisher in this starter.
 
-Then try:
+The intended progression is:
 
-```text
-Create a React card using the design library.
-```
+1. Simulation: fake $200 and fake experiments.
+2. Read-only integrations: real metrics and account balances.
+3. Human-approved actions: every external action creates an approval request.
+4. Only after careful testing: narrowly scoped automation with explicit budgets.
 
-## What to observe
+Do not put bank credentials in prompts, JSON files, MCP configuration, or source code.
 
-When the model needs visual details, the agent prints:
-
-```text
-Calling MCP tool: get_design_spec
-```
-
-That is the important moment: DeepSeek requested a tool, the agent called the MCP server, and the result was sent back to DeepSeek.
-
-## Inspect the MCP server directly
-
-You can test the server without DeepSeek:
+## Useful commands
 
 ```bash
-npm run inspect
+npm run dashboard   # Open the local dashboard
+npm run chat        # Start the business-agent loop
+npm run design-chat # Run the original design-to-code example
+npm run inspect     # Inspect the business MCP server directly
 ```
 
-This starts MCP Inspector, where you can see and manually call the available tool.
+## What to build next
 
-## Next step
-
-After this makes sense, replace `design-mcp-server.mjs` with Figma's MCP server. The agent loop stays conceptually the same; only the source of the design information changes.
+- Add a dashboard button that marks a proposal approved or rejected.
+- Add a fake expense/revenue tool for simulation.
+- Add a read-only analytics connector.
+- Add a real integration only after the simulation is understandable and the approval flow is tested.
