@@ -1,7 +1,13 @@
 {
-  "mode": "simulation",
-  "starting_balance": 200,
+  "model": "deepseek-r1:8b",
   "daily_spend_limit": 20,
   "total_loss_limit": 50,
-  "require_human_approval": true
+  "owner_hourly_rate": 25,
+  "max_turns": 8,
+  "max_tool_calls": 16,
+  "request_timeout_seconds": 120,
+  "run_timeout_seconds": 600,
+  "context_length": 16384,
+  "max_output_tokens": 4096,
+  "max_searches_per_day": 3
 }

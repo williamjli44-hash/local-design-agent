@@ -1,2 +1,12 @@
 node_modules/
 .DS_Store
+runtime/
+config.local.json
+.env
+.env.*
+!.env.example
+work/
+outputs/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

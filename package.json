@@ -1,17 +1,22 @@
 {
   "name": "local-business-agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
+  "engines": { "node": ">=24.0.0" },
   "scripts": {
     "chat": "node business-agent.mjs",
-    "design-chat": "node agent.mjs",
+    "start": "node dashboard-server.mjs",
     "dashboard": "node dashboard-server.mjs",
+    "daily": "node business-agent.mjs --once",
+    "doctor": "node scripts/doctor.mjs",
+    "operator": "node scripts/operator.mjs",
+    "test": "node --test",
     "inspect": "npx @modelcontextprotocol/inspector node business-mcp-server.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "latest",
-    "ollama": "latest",
-    "zod": "latest"
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "ollama": "0.6.4",
+    "zod": "4.6.7"
   }
 }

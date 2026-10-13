@@ -1,42 +1,57 @@
-import process from "node:process";
-import readline from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import ollama from "ollama";
+import readline from 'node:readline/promises';
+import { randomUUID } from 'node:crypto';
+import { parseArgs } from 'node:util';
+import { loadConfig } from './lib/config.mjs';
+import { Store } from './lib/store.mjs';
+import { connectMcp, localOllama, checkModel } from './lib/connections.mjs';
+import { runAgent, loadInstructions } from './lib/agent-loop.mjs';
 
-const model = process.env.OLLAMA_MODEL || "deepseek-r1:8b";
-const serverPath = new URL("./business-mcp-server.mjs", import.meta.url).pathname;
-const client = new Client({ name: "local-business-agent", version: "0.1.0" });
-await client.connect(new StdioClientTransport({ command: process.execPath, args: [serverPath] }));
-const { tools } = await client.listTools();
-const ollamaTools = tools.map((tool) => ({ type: "function", function: { name: tool.name, description: tool.description || "", parameters: tool.inputSchema } }));
-const messages = [{ role: "system", content: "You are a cautious business-experiment assistant. You operate only in simulation mode. Read account and experiment data when useful. You may create proposals, but never claim to have spent money, contacted anyone, or earned revenue. Keep proposals under the stated budget and explain the next human step." }];
+const { values } = parseArgs({ options: { once: { type: 'boolean' }, force: { type: 'boolean' }, prompt: { type: 'string' } } });
+const config = loadConfig();
+const store = new Store();
+let client;
+let rl;
 
-console.log(`Connected to business MCP tools: ${tools.map((tool) => tool.name).join(", ")}`);
-console.log(`Using Ollama model: ${model}`);
-console.log("Simulation mode: no bank, payment, email, or publishing tools are enabled.");
-console.log("Type a request, or type 'exit' to quit.\n");
+async function execute(prompt, daily = false) {
+  const key = daily && !values.force ? `daily:${new Date().toISOString().slice(0, 10)}` : `manual:${randomUUID()}`;
+  const run = store.startRun(key);
+  if (!run) { console.log('Today’s daily brief already exists. See the dashboard or use --force after adding new evidence.'); return; }
+  try {
+    if (daily && store.read().opportunities.length === 0 && !process.env.BRAVE_SEARCH_API_KEY) {
+      const result = { status: 'waiting_for_input', report: 'Add a buyer request in the dashboard or configure BRAVE_SEARCH_API_KEY in .env for live research. The service offer is in OFFER.md. No buyer evidence or search credentials are available yet.', calls: 0 };
+      store.finishRun(run.id, result); console.log(result.report); return;
+    }
+    const signal = AbortSignal.timeout(config.run_timeout_seconds * 1000);
+    const ollama = localOllama(config, signal);
+    await checkModel(ollama, config.model);
+    client ||= await connectMcp();
+    const { tools } = await client.listTools();
+    const result = await runAgent({
+      prompt, instructions: await loadInstructions(), tools, config,
+      chat: request => ollama.chat(request),
+      callTool: request => client.callTool(request, undefined, { timeout: 15000, signal }),
+      onCall: (name, error) => console.log(`MCP ${name}${error ? ' (returned error)' : ''}`)
+    });
+    store.finishRun(run.id, result);
+    console.log(`\n${result.report}\n`);
+    if (result.status === 'limited') process.exitCode = 2;
+  } catch (error) {
+    store.finishRun(run.id, { status: 'failed', error: error.message, report: `Run failed: ${error.message}` });
+    throw error;
+  }
+}
 
-const rl = readline.createInterface({ input, output });
 try {
-  while (true) {
-    const prompt = await rl.question("> ");
-    if (!prompt.trim()) continue;
-    if (prompt.trim().toLowerCase() === "exit") break;
-    messages.push({ role: "user", content: prompt });
-    for (let turn = 0; turn < 6; turn += 1) {
-      const response = await ollama.chat({ model, messages, tools: ollamaTools });
-      const assistantMessage = response.message;
-      messages.push(assistantMessage);
-      const calls = assistantMessage.tool_calls || [];
-      if (calls.length === 0) { console.log(`\n${assistantMessage.content}\n`); break; }
-      for (const call of calls) {
-        console.log(`  Calling MCP tool: ${call.function.name}`);
-        const result = await client.callTool({ name: call.function.name, arguments: call.function.arguments });
-        const content = result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n");
-        messages.push({ role: "tool", tool_name: call.function.name, content });
-      }
+  if (values.once || values.prompt) {
+    await execute(values.prompt || 'Run the daily business review using the strategy, stored evidence, and previous work. Save useful drafts and give the owner one concrete next action.', Boolean(values.once));
+  } else {
+    console.log(`Local Business Agent · ${config.model}\nEach request loads the strategy and persisted business context. Type exit to quit.`);
+    rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    for await (const line of rl) {
+      const prompt = line.trim();
+      if (prompt.toLowerCase() === 'exit') break;
+      if (prompt) await execute(prompt);
     }
   }
-} finally { rl.close(); await client.close(); }
+} catch (error) { console.error(error.message); process.exitCode = 1; }
+finally { rl?.close(); await client?.close(); store.close(); }
