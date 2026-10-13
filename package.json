@@ -1,0 +1,15 @@
+{
+  "name": "local-design-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "chat": "node agent.mjs",
+    "inspect": "npx @modelcontextprotocol/inspector node design-mcp-server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "ollama": "latest",
+    "zod": "latest"
+  }
+}
